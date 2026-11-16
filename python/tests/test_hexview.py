@@ -9,6 +9,7 @@ from hexview import HexView  # noqa: E402
 
 @pytest.fixture
 def view():
+    root = None
     try:
         root = tk.Tk()
     except tk.TclError as e:  # no display available (headless Linux without xvfb)

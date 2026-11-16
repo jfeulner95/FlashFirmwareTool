@@ -240,6 +240,8 @@ int serial_list_ports(serial_port_cb cb, void *user)
     DIR *dir;
     struct dirent *de;
 
+    memset(entries, 0, sizeof entries);
+
 #ifdef __linux__
     dir = opendir("/sys/class/tty");
     if (!dir)
