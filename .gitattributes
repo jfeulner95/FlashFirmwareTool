@@ -1,0 +1,9 @@
+# Normalize line endings in the repository
+* text=auto
+
+# Shell scripts must keep LF, also when checked out on Windows (bash fails on CRLF)
+*.sh text eol=lf
+
+# Binary assets
+*.png binary
+*.ico binary

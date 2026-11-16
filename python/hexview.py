@@ -6,7 +6,8 @@ Firmware-Images mit mehreren MB flüssig bedienbar.
 
 import string
 import tkinter as tk
-from tkinter import ttk, font as tkfont
+from tkinter import font as tkfont
+from tkinter import ttk
 
 BYTES_PER_ROW = 16
 
@@ -32,10 +33,11 @@ class HexView(ttk.Frame):
 
         self.data = bytearray()
         self.original = b""
-        self.undo_stack = []
+        self.undo_stack = []  # Liste von Gruppen: [(idx, alter_wert), ...]
+        self._modified = set()  # Indizes, die vom Original abweichen (O(1)-Zähler)
         self.cursor = 0
-        self.nibble = 0          # 0 = oberes Nibble, 1 = unteres Nibble
-        self.area = "hex"        # "hex" oder "ascii"
+        self.nibble = 0  # 0 = oberes Nibble, 1 = unteres Nibble
+        self.area = "hex"  # "hex" oder "ascii"
         self.top_row = 0
 
         self.font = tkfont.Font(family="Consolas", size=11)
@@ -49,9 +51,14 @@ class HexView(ttk.Frame):
         width = self.x_ascii + BYTES_PER_ROW * self.cw + self.pad
 
         self.canvas = tk.Canvas(
-            self, bg=COLORS["bg"], width=width, height=500,
-            highlightthickness=1, highlightbackground=COLORS["line"],
-            highlightcolor=COLORS["header"], takefocus=True,
+            self,
+            bg=COLORS["bg"],
+            width=width,
+            height=500,
+            highlightthickness=1,
+            highlightbackground=COLORS["line"],
+            highlightcolor=COLORS["header"],
+            takefocus=True,
         )
         self.vbar = ttk.Scrollbar(self, orient="vertical", command=self._on_scrollbar)
         self.canvas.grid(row=0, column=0, sticky="nsew")
@@ -63,8 +70,8 @@ class HexView(ttk.Frame):
         c.bind("<Configure>", lambda e: self.redraw())
         c.bind("<Button-1>", self._on_click)
         c.bind("<Key>", self._on_key)
-        c.bind("<MouseWheel>", self._on_wheel)                       # Windows / macOS
-        c.bind("<Button-4>", lambda e: self.scroll_rows(-3))         # Linux
+        c.bind("<MouseWheel>", self._on_wheel)  # Windows / macOS
+        c.bind("<Button-4>", lambda e: self.scroll_rows(-3))  # Linux
         c.bind("<Button-5>", lambda e: self.scroll_rows(3))
 
     # ------------------------------------------------------------------ API
@@ -72,6 +79,7 @@ class HexView(ttk.Frame):
         self.data = bytearray(data)
         self.original = bytes(data)
         self.undo_stack.clear()
+        self._modified.clear()
         self.cursor = 0
         self.nibble = 0
         self.top_row = 0
@@ -84,38 +92,61 @@ class HexView(ttk.Frame):
 
     def mark_saved(self):
         self.original = bytes(self.data)
+        self._modified.clear()
         self.redraw()
         self._notify_change()
 
     def modified_count(self) -> int:
-        return sum(1 for a, b in zip(self.data, self.original) if a != b)
+        return len(self._modified)
 
     def is_modified(self) -> bool:
-        return self.data != self.original
+        return bool(self._modified)
+
+    def _store(self, idx: int, value: int):
+        self.data[idx] = value
+        if value != self.original[idx]:
+            self._modified.add(idx)
+        else:
+            self._modified.discard(idx)
+
+    def _apply(self, idx: int, value: int, group: list) -> None:
+        value &= 0xFF
+        old = self.data[idx]
+        if old != value:
+            group.append((idx, old))
+            self._store(idx, value)
 
     def set_byte(self, idx: int, value: int):
         if not 0 <= idx < len(self.data):
             return
-        old = self.data[idx]
-        if old != value:
-            self.undo_stack.append((idx, old))
-            self.data[idx] = value & 0xFF
+        group = []
+        self._apply(idx, value, group)
+        if group:
+            self.undo_stack.append(group)
             self._notify_change()
 
     def write_bytes(self, offset: int, values: bytes):
-        """Schreibt mehrere Bytes ab offset (überschreibend, keine Größenänderung)."""
+        """Schreibt mehrere Bytes ab offset (überschreibend, keine Größenänderung).
+
+        Alle Bytes bilden einen Undo-Schritt; on_change wird nur einmal ausgelöst.
+        """
         if offset < 0 or offset + len(values) > len(self.data):
             raise ValueError("Bereich liegt außerhalb der Datei")
+        group = []
         for i, v in enumerate(values):
-            self.set_byte(offset + i, v)
+            self._apply(offset + i, v, group)
+        if group:
+            self.undo_stack.append(group)
+            self._notify_change()
         self.goto(offset)
 
     def undo(self):
         if not self.undo_stack:
             return
-        idx, old = self.undo_stack.pop()
-        self.data[idx] = old
-        self.cursor = idx
+        group = self.undo_stack.pop()
+        for idx, old in reversed(group):
+            self._store(idx, old)
+        self.cursor = min(idx for idx, _ in group)
         self.nibble = 0
         self._ensure_visible()
         self.redraw()
@@ -195,14 +226,17 @@ class HexView(ttk.Frame):
                     c.create_rectangle(ax, y, ax + self.cw, y + self.lh - 1, fill=asc_bg, outline="")
                     if self.area == "hex":
                         nx = hx + self.nibble * self.cw
-                        c.create_line(nx, y + self.lh - 2, nx + self.cw, y + self.lh - 2,
-                                      fill=COLORS["nibble"], width=2)
+                        c.create_line(
+                            nx, y + self.lh - 2, nx + self.cw, y + self.lh - 2, fill=COLORS["nibble"], width=2
+                        )
                 modified = idx < len(self.original) and self.original[idx] != b
-                c.create_text(hx, y, text=f"{b:02X}", anchor="nw", font=f,
-                              fill=COLORS["modified"] if modified else COLORS["hex"])
+                c.create_text(
+                    hx, y, text=f"{b:02X}", anchor="nw", font=f, fill=COLORS["modified"] if modified else COLORS["hex"]
+                )
                 ch = chr(b) if 32 <= b < 127 else "."
-                c.create_text(ax, y, text=ch, anchor="nw", font=f,
-                              fill=COLORS["modified"] if modified else COLORS["ascii"])
+                c.create_text(
+                    ax, y, text=ch, anchor="nw", font=f, fill=COLORS["modified"] if modified else COLORS["ascii"]
+                )
 
         total = self._total_rows()
         if total:
@@ -276,9 +310,12 @@ class HexView(ttk.Frame):
             return None  # andere Shortcuts (Strg+O, Strg+S, ...) durchreichen
 
         moves = {
-            "Left": -1, "Right": 1,
-            "Up": -BYTES_PER_ROW, "Down": BYTES_PER_ROW,
-            "Prior": -BYTES_PER_ROW * vis, "Next": BYTES_PER_ROW * vis,
+            "Left": -1,
+            "Right": 1,
+            "Up": -BYTES_PER_ROW,
+            "Down": BYTES_PER_ROW,
+            "Prior": -BYTES_PER_ROW * vis,
+            "Next": BYTES_PER_ROW * vis,
         }
         if ks in moves:
             self._move_to(self.cursor + moves[ks])

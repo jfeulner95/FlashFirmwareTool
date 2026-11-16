@@ -15,7 +15,7 @@
 
 struct serial_port {
     HANDLE h;
-    int read_timeout;   /* currently configured read timeout (ms), -1 = unknown */
+    int read_timeout; /* currently configured read timeout (ms), -1 = unknown */
 };
 
 static void win_error(char *err, size_t errlen, const char *what)
@@ -23,8 +23,8 @@ static void win_error(char *err, size_t errlen, const char *what)
     DWORD code = GetLastError();
     char msg[256] = "";
     size_t n;
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, code, 0,
-                   msg, sizeof msg, NULL);
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, code, 0, msg, sizeof msg,
+                   NULL);
     n = strlen(msg);
     while (n && (msg[n - 1] == '\r' || msg[n - 1] == '\n' || msg[n - 1] == '.' || msg[n - 1] == ' '))
         msg[--n] = '\0';
@@ -54,8 +54,8 @@ static int set_read_timeout(serial_port *sp, int ms)
     return 1;
 }
 
-serial_port *serial_open(const char *name, long baud, ser_parity parity, int stopbits,
-                         char *err, size_t errlen)
+serial_port *serial_open(const char *name, long baud, ser_parity parity, int stopbits, char *err,
+                         size_t errlen)
 {
     char path[128];
     HANDLE h;
@@ -65,7 +65,7 @@ serial_port *serial_open(const char *name, long baud, ser_parity parity, int sto
     if (strncmp(name, "\\\\.\\", 4) == 0)
         snprintf(path, sizeof path, "%s", name);
     else
-        snprintf(path, sizeof path, "\\\\.\\%s", name);   /* required for COM10+ */
+        snprintf(path, sizeof path, "\\\\.\\%s", name); /* required for COM10+ */
 
     h = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) {
@@ -136,7 +136,7 @@ long serial_write(serial_port *sp, const uint8_t *buf, size_t len)
         if (!WriteFile(sp->h, buf + total, (DWORD)(len - total), &n, NULL))
             return -1;
         if (n == 0)
-            return -1;   /* write timeout */
+            return -1; /* write timeout */
         total += n;
     }
     return (long)total;
@@ -174,8 +174,8 @@ int serial_list_ports(serial_port_cb cb, void *user)
     DWORD i;
     int count = 0;
 
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DEVICEMAP\\SERIALCOMM", 0, KEY_READ, &key)
-        != ERROR_SUCCESS)
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DEVICEMAP\\SERIALCOMM", 0, KEY_READ, &key) !=
+        ERROR_SUCCESS)
         return 0;
 
     for (i = 0;; i++) {
@@ -188,7 +188,7 @@ int serial_list_ports(serial_port_cb cb, void *user)
         if (r != ERROR_SUCCESS || type != REG_SZ)
             continue;
         data[dlen] = '\0';
-        cb((const char *)data, vname, user);   /* e.g. "COM3", "\Device\USBSER000" */
+        cb((const char *)data, vname, user); /* e.g. "COM3", "\Device\USBSER000" */
         count++;
     }
     RegCloseKey(key);

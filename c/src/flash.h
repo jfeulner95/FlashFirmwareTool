@@ -16,11 +16,11 @@ typedef struct {
     ser_parity parity;
     int stopbits;
     flash_proto proto;
-    size_t chunk_size;          /* RAW: bytes per write */
-    unsigned chunk_delay_ms;    /* RAW: pause after each chunk */
-    unsigned start_delay_ms;    /* pause before the transfer starts */
-    int reset;                  /* pulse DTR/RTS before start */
-    unsigned xmodem_wait_s;     /* XMODEM: how long to wait for the receiver */
+    size_t chunk_size;       /* RAW: bytes per write */
+    unsigned chunk_delay_ms; /* RAW: pause after each chunk */
+    unsigned start_delay_ms; /* pause before the transfer starts */
+    int reset;               /* pulse DTR/RTS before start */
+    unsigned xmodem_wait_s;  /* XMODEM: how long to wait for the receiver */
 } flash_opts;
 
 /* Set by the SIGINT handler (Ctrl+C) to abort a running transfer. */

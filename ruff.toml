@@ -1,0 +1,24 @@
+# Python lint + format config (checked in CI: .github/workflows/lint.yml)
+# Run locally:  ruff check python  &&  ruff format --check python
+line-length = 120
+target-version = "py38"  # README: Python 3.8+
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # import sorting
+    "B",   # bugbear (likely bugs)
+    "UP",  # pyupgrade
+    "C4",  # comprehensions
+    "RUF", # ruff-specific
+]
+# German UI strings intentionally use typographic characters (– ‘ ’ ×)
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[lint.isort]
+known-first-party = ["flasher", "hexview", "firmware_tool"]
+
+[lint.per-file-ignores]
+"python/tests/*" = ["B011"]

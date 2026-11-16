@@ -1,0 +1,13 @@
+# Build output
+c/fwtool
+c/fwtool.exe
+c/build/
+*.o
+*.obj
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/

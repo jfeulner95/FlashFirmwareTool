@@ -11,7 +11,7 @@
  * All offsets and lengths are hexadecimal ("0x" prefix optional).
  */
 #ifndef _WIN32
-#define _POSIX_C_SOURCE 200809L   /* fileno, isatty */
+#define _POSIX_C_SOURCE 200809L /* fileno, isatty */
 #endif
 
 #include <ctype.h>
@@ -37,8 +37,8 @@
 #include "serial.h"
 
 #define FWTOOL_VERSION "0.1.0"
-#define BYTES_PER_ROW 16
-#define MAX_TOKENS 256
+#define BYTES_PER_ROW  16
+#define MAX_TOKENS     256
 
 /* ================================================================ colors */
 static int g_color = 0;
@@ -69,7 +69,7 @@ static void on_sigint(int sig)
 {
     (void)sig;
     g_cancel = 1;
-    signal(SIGINT, on_sigint);   /* Windows CRT resets the handler after each signal */
+    signal(SIGINT, on_sigint); /* Windows CRT resets the handler after each signal */
 }
 
 /* ================================================================ buffer */
@@ -82,12 +82,20 @@ typedef struct {
 typedef struct {
     char path[1024];
     uint8_t *data;
-    uint8_t *orig;      /* content as last loaded/saved */
+    uint8_t *orig; /* content as last loaded/saved */
     size_t size;
     change_t *undo;
     size_t undo_n, undo_cap;
     unsigned group;
 } fwbuf;
+
+static void buf_free(fwbuf *b)
+{
+    free(b->data);
+    free(b->orig);
+    free(b->undo);
+    memset(b, 0, sizeof *b);
+}
 
 static int buf_load(fwbuf *b, const char *path)
 {
@@ -109,11 +117,13 @@ static int buf_load(fwbuf *b, const char *path)
     if (!b->data || !b->orig) {
         fprintf(stderr, "Out of memory\n");
         fclose(f);
+        buf_free(b);
         return -1;
     }
     if (fread(b->data, 1, b->size, f) != b->size) {
         fprintf(stderr, "%s: read error\n", path);
         fclose(f);
+        buf_free(b);
         return -1;
     }
     fclose(f);
@@ -129,23 +139,19 @@ static int buf_save(fwbuf *b, const char *path)
         perror(path);
         return -1;
     }
-    if (fwrite(b->data, 1, b->size, f) != b->size || fclose(f) != 0) {
-        fprintf(stderr, "%s: write error\n", path);
-        return -1;
+    {
+        int write_ok = fwrite(b->data, 1, b->size, f) == b->size;
+        int close_ok = fclose(f) == 0; /* always close, even after a failed write */
+        if (!write_ok || !close_ok) {
+            fprintf(stderr, "%s: write error\n", path);
+            return -1;
+        }
     }
     memcpy(b->orig, b->data, b->size);
     if (path != b->path)
         snprintf(b->path, sizeof b->path, "%s", path);
     printf("Saved %zu bytes to %s\n", b->size, path);
     return 0;
-}
-
-static void buf_free(fwbuf *b)
-{
-    free(b->data);
-    free(b->orig);
-    free(b->undo);
-    memset(b, 0, sizeof *b);
 }
 
 static size_t buf_modified(const fwbuf *b)
@@ -182,18 +188,24 @@ static void buf_set(fwbuf *b, size_t off, uint8_t v)
     b->data[off] = v;
 }
 
-/* Reverts the last write operation. Returns the number of bytes restored. */
-static size_t buf_undo(fwbuf *b, size_t *first_off)
+/* Reverts the last write operation. Returns the number of bytes restored and
+ * the affected range [*first_off, *last_off] (unchanged bytes may lie in between). */
+static size_t buf_undo(fwbuf *b, size_t *first_off, size_t *last_off)
 {
     size_t n = 0;
     unsigned g;
     if (!b->undo_n)
         return 0;
     g = b->undo[b->undo_n - 1].group;
+    *first_off = SIZE_MAX;
+    *last_off = 0;
     while (b->undo_n && b->undo[b->undo_n - 1].group == g) {
         change_t *c = &b->undo[--b->undo_n];
         b->data[c->off] = c->old;
-        *first_off = c->off;
+        if (c->off < *first_off)
+            *first_off = c->off;
+        if (c->off > *last_off)
+            *last_off = c->off;
         n++;
     }
     return n;
@@ -221,11 +233,16 @@ static int parse_hex_number(const char *s, size_t *out)
         s += 2;
     for (; *s; s++) {
         int d;
-        if (*s >= '0' && *s <= '9') d = *s - '0';
-        else if (*s >= 'a' && *s <= 'f') d = *s - 'a' + 10;
-        else if (*s >= 'A' && *s <= 'F') d = *s - 'A' + 10;
-        else if (*s == '_') continue;
-        else return -1;
+        if (*s >= '0' && *s <= '9')
+            d = *s - '0';
+        else if (*s >= 'a' && *s <= 'f')
+            d = *s - 'a' + 10;
+        else if (*s >= 'A' && *s <= 'F')
+            d = *s - 'A' + 10;
+        else if (*s == '_')
+            continue;
+        else
+            return -1;
         if (v > (SIZE_MAX >> 4))
             return -1;
         v = (v << 4) | (size_t)d;
@@ -257,9 +274,12 @@ static int parse_hex_bytes(int argc, char **argv, uint8_t **out, size_t *outlen)
                 s++;
                 continue;
             }
-            if (*s >= '0' && *s <= '9') d = *s - '0';
-            else if (*s >= 'a' && *s <= 'f') d = *s - 'a' + 10;
-            else if (*s >= 'A' && *s <= 'F') d = *s - 'A' + 10;
+            if (*s >= '0' && *s <= '9')
+                d = *s - '0';
+            else if (*s >= 'a' && *s <= 'f')
+                d = *s - 'a' + 10;
+            else if (*s >= 'A' && *s <= 'F')
+                d = *s - 'A' + 10;
             else {
                 fprintf(stderr, "Invalid hex character '%c' in \"%s\"\n", *s, argv[i]);
                 free(buf);
@@ -441,7 +461,7 @@ static int write_bytes(fwbuf *b, size_t off, const uint8_t *v, size_t n)
     return 0;
 }
 
-/* Parses flash options from argv[start..], fills opts. Returns 0 on success. */
+/* Optionally asks for confirmation, then flashes the buffer. Returns 0 on success. */
 static int do_flash(fwbuf *b, flash_opts *o, int confirm)
 {
     char q[512];
@@ -489,7 +509,7 @@ static void usage(void)
 #else
            "  fwtool flash firmware.bin /dev/ttyUSB0 -b 115200 -p xmodem\n"
 #endif
-           );
+    );
 }
 
 static void interactive_help(void)
@@ -560,7 +580,14 @@ static int cmd_edit(const char *path)
         printf("%sfwtool%s%s> ", COL_CYAN, buf_modified(&b) ? "*" : "", COL_RESET);
         fflush(stdout);
         if (!fgets(line, sizeof line, stdin)) {
-            if (g_cancel) {          /* Ctrl+C on Windows interrupts fgets */
+#ifdef _WIN32
+            /* Ctrl+C makes fgets return NULL immediately, but the CRT runs the
+             * SIGINT handler on a separate thread - give it time to set g_cancel,
+             * otherwise Ctrl+C is mistaken for EOF and unsaved changes are lost. */
+            if (!g_cancel)
+                Sleep(100);
+#endif
+            if (g_cancel) { /* Ctrl+C on Windows interrupts fgets */
                 g_cancel = 0;
                 clearerr(stdin);
                 printf("\n(use 'q' to quit)\n");
@@ -599,9 +626,10 @@ static int cmd_edit(const char *path)
                 continue;
             }
             if (off >= b.size && argc == 1)
-                off = 0;   /* wrap around when continuing past the end */
+                off = 0; /* wrap around when continuing past the end */
             hexdump(&b, off, len);
-            next_off = (off + len < b.size) ? off + len : b.size;
+            /* avoid size_t overflow for huge lengths */
+            next_off = (off < b.size && len < b.size - off) ? off + len : b.size;
         } else if (is_cmd(c, "w", "write")) {
             size_t off, n;
             uint8_t *v;
@@ -622,6 +650,10 @@ static int cmd_edit(const char *path)
             if (argc != 4 || parse_hex_number(argv[1], &off) || parse_hex_number(argv[2], &len) ||
                 parse_hex_number(argv[3], &val) || val > 0xFF || len == 0) {
                 printf("Usage: fill <offset> <length> <byte>\n");
+                continue;
+            }
+            if (off >= b.size || len > b.size - off) { /* check before allocating */
+                printf("Range is outside the file (size 0x%zX)\n", b.size);
                 continue;
             }
             v = (uint8_t *)malloc(len);
@@ -646,12 +678,12 @@ static int cmd_edit(const char *path)
             print_find(&b, v, n);
             free(v);
         } else if (is_cmd(c, "u", "undo")) {
-            size_t first = 0, n = buf_undo(&b, &first);
+            size_t first = 0, last = 0, n = buf_undo(&b, &first, &last);
             if (!n) {
                 printf("Nothing to undo.\n");
             } else {
                 printf("Undone: %zu byte(s)\n", n);
-                hexdump(&b, first, n);
+                hexdump(&b, first, last - first + 1);
             }
         } else if (!strcmp(c, "diff")) {
             print_diff(&b);
@@ -830,8 +862,13 @@ static int cmd_flash(int argc, char **argv)
                 buf_free(&b);
                 return 2;
             }
-            if (write_bytes(&b, off, v, cnt) == 0)
-                printf("Patched %zu byte(s) at 0x%08zX (in memory)\n", cnt, off);
+            if (write_bytes(&b, off, v, cnt) != 0) {
+                /* never flash an image whose requested patch could not be applied */
+                free(v);
+                buf_free(&b);
+                return 2;
+            }
+            printf("Patched %zu byte(s) at 0x%08zX (in memory)\n", cnt, off);
             free(v);
             continue;
         }
