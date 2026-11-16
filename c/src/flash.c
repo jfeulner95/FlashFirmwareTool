@@ -4,12 +4,12 @@
 
 #include "flash.h"
 
-#define SOH 0x01
-#define STX 0x02
-#define EOT 0x04
-#define ACK 0x06
-#define NAK 0x15
-#define CAN 0x18
+#define SOH     0x01
+#define STX     0x02
+#define EOT     0x04
+#define ACK     0x06
+#define NAK     0x15
+#define CAN     0x18
 #define CRC_REQ 'C'
 
 volatile sig_atomic_t g_cancel = 0;
@@ -28,9 +28,9 @@ void flash_opts_default(flash_opts *o)
 const char *flash_proto_name(flash_proto p)
 {
     switch (p) {
-    case PROTO_XMODEM:   return "XMODEM";
+    case PROTO_XMODEM: return "XMODEM";
     case PROTO_XMODEM1K: return "XMODEM-1K";
-    default:             return "RAW";
+    default: return "RAW";
     }
 }
 
@@ -90,56 +90,69 @@ int flash_parse_option(flash_opts *o, int argc, char **argv, int *i, char *err, 
     const char *val = (*i + 1 < argc) ? argv[*i + 1] : NULL;
     long v;
 
-#define NEED_VALUE()                                                        \
-    do {                                                                    \
-        if (!val) {                                                         \
-            snprintf(err, errlen, "Option %s requires a value", opt);       \
-            return -1;                                                      \
-        }                                                                   \
-        (*i)++;                                                             \
+#define NEED_VALUE()                                                  \
+    do {                                                              \
+        if (!val) {                                                   \
+            snprintf(err, errlen, "Option %s requires a value", opt); \
+            return -1;                                                \
+        }                                                             \
+        (*i)++;                                                       \
     } while (0)
-#define BAD_VALUE()                                                         \
-    do {                                                                    \
-        snprintf(err, errlen, "Invalid value for %s: %s", opt, val);        \
-        return -1;                                                          \
+#define BAD_VALUE()                                                  \
+    do {                                                             \
+        snprintf(err, errlen, "Invalid value for %s: %s", opt, val); \
+        return -1;                                                   \
     } while (0)
 
     if (!strcmp(opt, "-b") || !strcmp(opt, "--baud")) {
         NEED_VALUE();
-        if (!parse_long(val, 50, 20000000, &v)) BAD_VALUE();
+        if (!parse_long(val, 50, 20000000, &v))
+            BAD_VALUE();
         o->baud = v;
     } else if (!strcmp(opt, "-p") || !strcmp(opt, "--protocol")) {
         NEED_VALUE();
-        if (lower_eq(val, "raw")) o->proto = PROTO_RAW;
-        else if (lower_eq(val, "xmodem")) o->proto = PROTO_XMODEM;
+        if (lower_eq(val, "raw"))
+            o->proto = PROTO_RAW;
+        else if (lower_eq(val, "xmodem"))
+            o->proto = PROTO_XMODEM;
         else if (lower_eq(val, "xmodem1k") || lower_eq(val, "xmodem-1k") || lower_eq(val, "1k"))
             o->proto = PROTO_XMODEM1K;
-        else BAD_VALUE();
+        else
+            BAD_VALUE();
     } else if (!strcmp(opt, "--parity")) {
         NEED_VALUE();
-        if (lower_eq(val, "n") || lower_eq(val, "none")) o->parity = SER_PARITY_NONE;
-        else if (lower_eq(val, "e") || lower_eq(val, "even")) o->parity = SER_PARITY_EVEN;
-        else if (lower_eq(val, "o") || lower_eq(val, "odd")) o->parity = SER_PARITY_ODD;
-        else BAD_VALUE();
+        if (lower_eq(val, "n") || lower_eq(val, "none"))
+            o->parity = SER_PARITY_NONE;
+        else if (lower_eq(val, "e") || lower_eq(val, "even"))
+            o->parity = SER_PARITY_EVEN;
+        else if (lower_eq(val, "o") || lower_eq(val, "odd"))
+            o->parity = SER_PARITY_ODD;
+        else
+            BAD_VALUE();
     } else if (!strcmp(opt, "--stop")) {
         NEED_VALUE();
-        if (!parse_long(val, 1, 2, &v)) BAD_VALUE();
+        if (!parse_long(val, 1, 2, &v))
+            BAD_VALUE();
         o->stopbits = (int)v;
     } else if (!strcmp(opt, "-c") || !strcmp(opt, "--chunk")) {
         NEED_VALUE();
-        if (!parse_long(val, 1, 1 << 20, &v)) BAD_VALUE();
+        if (!parse_long(val, 1, 1 << 20, &v))
+            BAD_VALUE();
         o->chunk_size = (size_t)v;
     } else if (!strcmp(opt, "-d") || !strcmp(opt, "--delay")) {
         NEED_VALUE();
-        if (!parse_long(val, 0, 600000, &v)) BAD_VALUE();
+        if (!parse_long(val, 0, 600000, &v))
+            BAD_VALUE();
         o->chunk_delay_ms = (unsigned)v;
     } else if (!strcmp(opt, "--start-delay")) {
         NEED_VALUE();
-        if (!parse_long(val, 0, 600000, &v)) BAD_VALUE();
+        if (!parse_long(val, 0, 600000, &v))
+            BAD_VALUE();
         o->start_delay_ms = (unsigned)v;
     } else if (!strcmp(opt, "--wait")) {
         NEED_VALUE();
-        if (!parse_long(val, 1, 3600, &v)) BAD_VALUE();
+        if (!parse_long(val, 1, 3600, &v))
+            BAD_VALUE();
         o->xmodem_wait_s = (unsigned)v;
     } else if (!strcmp(opt, "--reset")) {
         o->reset = 1;
@@ -162,9 +175,8 @@ static void progress(size_t done, size_t total)
     if (permille == g_last_permille)
         return;
     g_last_permille = permille;
-    fprintf(stderr, "\r[%.*s%*s] %5.1f%%  %zu/%zu bytes",
-            filled, "########################################", width - filled, "",
-            permille / 10.0, done, total);
+    fprintf(stderr, "\r[%.*s%*s] %5.1f%%  %zu/%zu bytes", filled, "########################################",
+            width - filled, "", permille / 10.0, done, total);
     if (done >= total)
         fputc('\n', stderr);
     fflush(stderr);
@@ -271,7 +283,7 @@ static int send_xmodem(serial_port *sp, const flash_opts *o, const uint8_t *data
             return -1;
         }
     }
-    serial_flush_input(sp);   /* drop additional 'C's the receiver may have queued */
+    serial_flush_input(sp); /* drop additional 'C's the receiver may have queued */
 
     if (!use_crc && block_size == 1024) {
         printf("Receiver does not support CRC -> falling back to 128-byte blocks\n");
@@ -287,7 +299,7 @@ static int send_xmodem(serial_port *sp, const flash_opts *o, const uint8_t *data
         pkt[2] = (uint8_t)(0xFF - (blk & 0xFF));
         memcpy(pkt + 3, data + off, n);
         if (n < block_size)
-            memset(pkt + 3 + n, 0x1A, block_size - n);   /* pad with SUB */
+            memset(pkt + 3 + n, 0x1A, block_size - n); /* pad with SUB */
         if (use_crc) {
             uint16_t crc = crc16_xmodem(pkt + 3, block_size);
             pkt[pkt_len++] = (uint8_t)(crc >> 8);
@@ -322,9 +334,12 @@ static int send_xmodem(serial_port *sp, const flash_opts *o, const uint8_t *data
                 return -1;
             }
             if (g_cancel)
-                continue;   /* handled at top of loop */
+                continue; /* handled at top of loop */
             fprintf(stderr, "\nBlock %u: %s - retry %d/10\n", blk,
-                    r == NAK ? "NAK" : r == -1 ? "timeout" : "unexpected response", attempt);
+                    r == NAK  ? "NAK"
+                    : r == -1 ? "timeout"
+                              : "unexpected response",
+                    attempt);
         }
         if (attempt > 10) {
             fprintf(stderr, "Block %u: too many errors, aborting\n", blk);
@@ -364,7 +379,9 @@ int flash_run(const flash_opts *o, const uint8_t *data, size_t len)
         return -1;
     }
     printf("Opened %s @ %ld baud, 8%c%d, protocol %s\n", o->port, o->baud,
-           o->parity == SER_PARITY_EVEN ? 'E' : o->parity == SER_PARITY_ODD ? 'O' : 'N',
+           o->parity == SER_PARITY_EVEN  ? 'E'
+           : o->parity == SER_PARITY_ODD ? 'O'
+                                         : 'N',
            o->stopbits, flash_proto_name(o->proto));
 
     rc = 0;
@@ -393,8 +410,7 @@ int flash_run(const flash_opts *o, const uint8_t *data, size_t len)
 
     if (rc == 0) {
         double secs = dt / 1000.0;
-        printf("Done: %zu bytes in %.2f s (%.1f KiB/s)\n", len, secs,
-               secs > 0 ? len / secs / 1024.0 : 0.0);
+        printf("Done: %zu bytes in %.2f s (%.1f KiB/s)\n", len, secs, secs > 0 ? len / secs / 1024.0 : 0.0);
     } else if (rc == -2) {
         fprintf(stderr, "\nTransfer cancelled.\n");
     } else {

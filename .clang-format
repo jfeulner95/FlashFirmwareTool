@@ -1,0 +1,17 @@
+# C coding style for c/src (checked in CI: .github/workflows/lint.yml)
+# Apply locally with:  clang-format -i c/src/*.c c/src/*.h
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 110
+BreakBeforeBraces: Linux
+PointerAlignment: Right
+IndentCaseLabels: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: true
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
+AlignTrailingComments: true
+SpaceAfterCStyleCast: false
+# Include order matters (feature-test macros, windows.h before io.h)
+SortIncludes: Never

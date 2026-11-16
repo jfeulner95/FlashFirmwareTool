@@ -1,7 +1,7 @@
 /* Serial port implementation for Linux / macOS (POSIX termios). */
 #ifndef _WIN32
 
-#define _DEFAULT_SOURCE      /* cfmakeraw, nanosleep, readlink, ... (glibc) */
+#define _DEFAULT_SOURCE /* cfmakeraw, nanosleep, readlink, ... (glibc) */
 #define _DARWIN_C_SOURCE
 
 #include <dirent.h>
@@ -23,9 +23,12 @@ struct serial_port {
     int fd;
 };
 
-static const struct { long baud; speed_t speed; } baud_table[] = {
-    {1200, B1200}, {2400, B2400}, {4800, B4800}, {9600, B9600}, {19200, B19200},
-    {38400, B38400}, {57600, B57600}, {115200, B115200}, {230400, B230400},
+static const struct {
+    long baud;
+    speed_t speed;
+} baud_table[] = {
+    {1200, B1200},       {2400, B2400},   {4800, B4800},     {9600, B9600},     {19200, B19200},
+    {38400, B38400},     {57600, B57600}, {115200, B115200}, {230400, B230400},
 #ifdef B460800
     {460800, B460800},
 #endif
@@ -64,8 +67,8 @@ static const struct { long baud; speed_t speed; } baud_table[] = {
 #endif
 };
 
-serial_port *serial_open(const char *name, long baud, ser_parity parity, int stopbits,
-                         char *err, size_t errlen)
+serial_port *serial_open(const char *name, long baud, ser_parity parity, int stopbits, char *err,
+                         size_t errlen)
 {
     struct termios tio;
     speed_t speed = 0;
@@ -204,7 +207,10 @@ void serial_set_lines(serial_port *sp, int dtr, int rts)
 }
 
 /* ---------------------------------------------------------- port listing */
-typedef struct { char name[128]; char desc[192]; } port_entry;
+typedef struct {
+    char name[128];
+    char desc[192];
+} port_entry;
 
 static int cmp_entry(const void *a, const void *b)
 {
@@ -248,7 +254,7 @@ int serial_list_ports(serial_port_cb cb, void *user)
             continue;
         snprintf(path, sizeof path, "/sys/class/tty/%s/device", de->d_name);
         if (stat(path, &st) != 0)
-            continue;   /* virtual terminal, no hardware behind it */
+            continue; /* virtual terminal, no hardware behind it */
 
         snprintf(path, sizeof path, "/sys/class/tty/%s/device/driver", de->d_name);
         n = readlink(path, link, sizeof link - 1);
@@ -257,7 +263,7 @@ int serial_list_ports(serial_port_cb cb, void *user)
         link[n] = '\0';
         driver = strrchr(link, '/') ? strrchr(link, '/') + 1 : link;
         if (strcmp(driver, "serial8250") == 0)
-            continue;   /* unused legacy ttyS placeholder */
+            continue; /* unused legacy ttyS placeholder */
 
         snprintf(path, sizeof path, "/sys/class/tty/%s/device/../product", de->d_name);
         read_first_line(path, product, sizeof product);

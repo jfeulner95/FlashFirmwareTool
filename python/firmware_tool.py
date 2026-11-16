@@ -3,13 +3,13 @@
 import os
 import queue
 import threading
-import zlib
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+import zlib
+from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
+from flasher import PARITIES, PROTOCOLS, STOPBITS, FlashCancelled, Flasher, list_ports
 from hexview import HexView
-from flasher import Flasher, FlashCancelled, list_ports, PROTOCOLS, PARITIES, STOPBITS
 
 __version__ = "0.1.0"
 APP_NAME = "Firmware Flash Tool"
@@ -148,8 +148,12 @@ class App(tk.Tk):
         pe.grid(row=1, column=1, sticky="ew", padx=4, pady=(4, 0))
         ttk.Button(f, text="Schreiben", command=self.patch_bytes).grid(row=1, column=2, pady=(4, 0))
         pe.bind("<Return>", lambda e: self.patch_bytes())
-        ttk.Label(f, text="z.B. DE AD BE EF – oder direkt im Editor tippen\n(Tab wechselt Hex/ASCII, Strg+Z = Undo)",
-                  foreground="#666", font=("Segoe UI", 8)).grid(row=2, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        ttk.Label(
+            f,
+            text="z.B. DE AD BE EF – oder direkt im Editor tippen\n(Tab wechselt Hex/ASCII, Strg+Z = Undo)",
+            foreground="#666",
+            font=("Segoe UI", 8),
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(4, 0))
         f.columnconfigure(1, weight=1)
 
     def _build_serial(self, parent):
@@ -166,19 +170,22 @@ class App(tk.Tk):
         ttk.Label(f, text="Baudrate:").grid(row=r, column=0, sticky="w", pady=2)
         self.baud_var = tk.StringVar(value="115200")
         ttk.Combobox(f, textvariable=self.baud_var, values=BAUDRATES, width=12).grid(
-            row=r, column=1, sticky="ew", padx=4, pady=2)
+            row=r, column=1, sticky="ew", padx=4, pady=2
+        )
 
         r += 1
         ttk.Label(f, text="Parität:").grid(row=r, column=0, sticky="w", pady=2)
-        self.parity_var = tk.StringVar(value=list(PARITIES)[0])
+        self.parity_var = tk.StringVar(value=next(iter(PARITIES)))
         ttk.Combobox(f, textvariable=self.parity_var, values=list(PARITIES), state="readonly", width=12).grid(
-            row=r, column=1, sticky="ew", padx=4, pady=2)
+            row=r, column=1, sticky="ew", padx=4, pady=2
+        )
 
         r += 1
         ttk.Label(f, text="Stoppbits:").grid(row=r, column=0, sticky="w", pady=2)
         self.stop_var = tk.StringVar(value="1")
         ttk.Combobox(f, textvariable=self.stop_var, values=list(STOPBITS), state="readonly", width=12).grid(
-            row=r, column=1, sticky="ew", padx=4, pady=2)
+            row=r, column=1, sticky="ew", padx=4, pady=2
+        )
 
         r += 1
         ttk.Label(f, text="Protokoll:").grid(row=r, column=0, sticky="w", pady=2)
@@ -207,7 +214,8 @@ class App(tk.Tk):
         r += 1
         self.dtr_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(f, text="Reset-Impuls über DTR/RTS vor Start", variable=self.dtr_var).grid(
-            row=r, column=0, columnspan=3, sticky="w", pady=2)
+            row=r, column=0, columnspan=3, sticky="w", pady=2
+        )
 
         r += 1
         bf = ttk.Frame(f)
@@ -243,8 +251,8 @@ class App(tk.Tk):
         if not self._confirm_discard():
             return
         path = filedialog.askopenfilename(
-            title="Firmware öffnen",
-            filetypes=[("Firmware-Binary", "*.bin *.img *.fw *.rom"), ("Alle Dateien", "*.*")])
+            title="Firmware öffnen", filetypes=[("Firmware-Binary", "*.bin *.img *.fw *.rom"), ("Alle Dateien", "*.*")]
+        )
         if not path:
             return
         try:
@@ -267,9 +275,11 @@ class App(tk.Tk):
         if not self.hexview.data:
             return
         path = filedialog.asksaveasfilename(
-            title="Firmware speichern unter", defaultextension=".bin",
+            title="Firmware speichern unter",
+            defaultextension=".bin",
             initialfile=os.path.basename(self.filepath) if self.filepath else "firmware.bin",
-            filetypes=[("Firmware-Binary", "*.bin"), ("Alle Dateien", "*.*")])
+            filetypes=[("Firmware-Binary", "*.bin"), ("Alle Dateien", "*.*")],
+        )
         if path:
             self._write(path)
 
@@ -356,7 +366,7 @@ class App(tk.Tk):
     def _update_cursor_info(self, idx):
         data = self.hexview.data
         if not data:
-            for v in self.cursor_vars.values():   # keine veralteten Werte stehen lassen
+            for v in self.cursor_vars.values():  # keine veralteten Werte stehen lassen
                 v.set("-")
             return
         b = data[idx]
@@ -364,8 +374,8 @@ class App(tk.Tk):
         self.cursor_vars["Hex"].set(f"0x{b:02X}")
         self.cursor_vars["Dez"].set(str(b))
         self.cursor_vars["Bin"].set(f"{b:08b}")
-        u16 = data[idx:idx + 2]
-        u32 = data[idx:idx + 4]
+        u16 = data[idx : idx + 2]
+        u32 = data[idx : idx + 4]
         self.cursor_vars["UInt16 LE"].set(str(int.from_bytes(u16, "little")) if len(u16) == 2 else "-")
         self.cursor_vars["UInt32 LE"].set(f"0x{int.from_bytes(u32, 'little'):08X}" if len(u32) == 4 else "-")
         self.status.config(text=f"Offset 0x{idx:08X}  |  Bereich: {self.hexview.area.upper()}")
@@ -407,16 +417,24 @@ class App(tk.Tk):
 
         extra = ""
         if self.hexview.is_modified():
-            extra = f"\n\nHinweis: {self.hexview.modified_count()} Byte(s) wurden geändert (noch nicht gespeichert) – " \
-                    "es wird der aktuelle Editor-Inhalt übertragen."
-        if not messagebox.askyesno(APP_NAME, f"{len(data)} Bytes an {port} @ {baud} Baud "
-                                             f"({self.proto_var.get()}) übertragen?{extra}"):
+            extra = (
+                f"\n\nHinweis: {self.hexview.modified_count()} Byte(s) wurden geändert (noch nicht gespeichert) – "
+                "es wird der aktuelle Editor-Inhalt übertragen."
+            )
+        if not messagebox.askyesno(
+            APP_NAME, f"{len(data)} Bytes an {port} @ {baud} Baud ({self.proto_var.get()}) übertragen?{extra}"
+        ):
             return
 
         self.flasher = Flasher(
-            port=port, baudrate=baud, protocol=self.proto_var.get(),
-            parity=PARITIES[self.parity_var.get()], stopbits=STOPBITS[self.stop_var.get()],
-            chunk_size=chunk, chunk_delay_ms=delay, dtr_reset=self.dtr_var.get(),
+            port=port,
+            baudrate=baud,
+            protocol=self.proto_var.get(),
+            parity=PARITIES[self.parity_var.get()],
+            stopbits=STOPBITS[self.stop_var.get()],
+            chunk_size=chunk,
+            chunk_delay_ms=delay,
+            dtr_reset=self.dtr_var.get(),
             start_delay_ms=start_delay,
             progress=lambda d, t: self.msg_queue.put(("progress", d, t)),
             log=lambda m: self.msg_queue.put(("log", m)),
@@ -434,7 +452,7 @@ class App(tk.Tk):
             self.msg_queue.put(("done", True, "Übertragung erfolgreich abgeschlossen."))
         except FlashCancelled:
             self.msg_queue.put(("done", False, "Übertragung abgebrochen."))
-        except Exception as e:  # noqa: BLE001 – alle Fehler im GUI anzeigen
+        except Exception as e:  # alle Fehler im GUI anzeigen
             self.msg_queue.put(("done", False, f"Fehler: {e}"))
 
     def cancel_flash(self):
@@ -467,6 +485,7 @@ class App(tk.Tk):
     # ============================================================ Diverses
     def log(self, text):
         from datetime import datetime
+
         self.log_text.config(state="normal")
         self.log_text.insert("end", f"[{datetime.now():%H:%M:%S}] {text}\n")
         self.log_text.see("end")

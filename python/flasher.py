@@ -41,9 +41,20 @@ def crc16_xmodem(data: bytes) -> int:
 
 
 class Flasher:
-    def __init__(self, port, baudrate, protocol="RAW", parity=serial.PARITY_NONE,
-                 stopbits=serial.STOPBITS_ONE, chunk_size=256, chunk_delay_ms=0,
-                 dtr_reset=False, start_delay_ms=0, progress=None, log=None):
+    def __init__(
+        self,
+        port,
+        baudrate,
+        protocol="RAW",
+        parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE,
+        chunk_size=256,
+        chunk_delay_ms=0,
+        dtr_reset=False,
+        start_delay_ms=0,
+        progress=None,
+        log=None,
+    ):
         self.port = port
         self.baudrate = baudrate
         self.protocol = protocol
@@ -67,9 +78,15 @@ class Flasher:
     # ----------------------------------------------------------------- run
     def run(self, data: bytes):
         self.log(f"Öffne {self.port} @ {self.baudrate} Baud ({self.protocol})")
-        with serial.Serial(self.port, self.baudrate, bytesize=serial.EIGHTBITS,
-                           parity=self.parity, stopbits=self.stopbits,
-                           timeout=1, write_timeout=10) as ser:
+        with serial.Serial(
+            self.port,
+            self.baudrate,
+            bytesize=serial.EIGHTBITS,
+            parity=self.parity,
+            stopbits=self.stopbits,
+            timeout=1,
+            write_timeout=10,
+        ) as ser:
             if self.dtr_reset:
                 self.log("Reset-Impuls über DTR/RTS")
                 ser.dtr = False
@@ -106,11 +123,11 @@ class Flasher:
         total = len(data)
         for off in range(0, total, self.chunk_size):
             self._check_cancel()
-            ser.write(data[off:off + self.chunk_size])
+            ser.write(data[off : off + self.chunk_size])
             ser.flush()
             self.progress(min(off + self.chunk_size, total), total)
             if self.chunk_delay:
-                self._sleep(self.chunk_delay)   # abbrechbar, auch bei langen Pausen
+                self._sleep(self.chunk_delay)  # abbrechbar, auch bei langen Pausen
         if total == 0:
             self.progress(0, 0)
 
@@ -166,9 +183,9 @@ class Flasher:
         blk = 1
         off = 0
         while off < total:
-            chunk = data[off:off + block_size]
+            chunk = data[off : off + block_size]
             if len(chunk) < block_size:
-                chunk += b"\x1A" * (block_size - len(chunk))
+                chunk += b"\x1a" * (block_size - len(chunk))
             header = STX if block_size == 1024 else SOH
             pkt = bytes([header, blk & 0xFF, 0xFF - (blk & 0xFF)]) + chunk
             pkt += crc16_xmodem(chunk).to_bytes(2, "big") if use_crc else bytes([sum(chunk) & 0xFF])
@@ -190,7 +207,7 @@ class Flasher:
             blk += 1
             self.progress(min(off, total), total)
 
-        for attempt in range(10):
+        for _attempt in range(10):
             ser.write(bytes([EOT]))
             if self._read_response(ser, 5) == ACK:
                 return

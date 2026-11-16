@@ -11,7 +11,7 @@
  * All offsets and lengths are hexadecimal ("0x" prefix optional).
  */
 #ifndef _WIN32
-#define _POSIX_C_SOURCE 200809L   /* fileno, isatty */
+#define _POSIX_C_SOURCE 200809L /* fileno, isatty */
 #endif
 
 #include <ctype.h>
@@ -37,8 +37,8 @@
 #include "serial.h"
 
 #define FWTOOL_VERSION "0.1.0"
-#define BYTES_PER_ROW 16
-#define MAX_TOKENS 256
+#define BYTES_PER_ROW  16
+#define MAX_TOKENS     256
 
 /* ================================================================ colors */
 static int g_color = 0;
@@ -69,7 +69,7 @@ static void on_sigint(int sig)
 {
     (void)sig;
     g_cancel = 1;
-    signal(SIGINT, on_sigint);   /* Windows CRT resets the handler after each signal */
+    signal(SIGINT, on_sigint); /* Windows CRT resets the handler after each signal */
 }
 
 /* ================================================================ buffer */
@@ -82,7 +82,7 @@ typedef struct {
 typedef struct {
     char path[1024];
     uint8_t *data;
-    uint8_t *orig;      /* content as last loaded/saved */
+    uint8_t *orig; /* content as last loaded/saved */
     size_t size;
     change_t *undo;
     size_t undo_n, undo_cap;
@@ -141,7 +141,7 @@ static int buf_save(fwbuf *b, const char *path)
     }
     {
         int write_ok = fwrite(b->data, 1, b->size, f) == b->size;
-        int close_ok = fclose(f) == 0;   /* always close, even after a failed write */
+        int close_ok = fclose(f) == 0; /* always close, even after a failed write */
         if (!write_ok || !close_ok) {
             fprintf(stderr, "%s: write error\n", path);
             return -1;
@@ -233,11 +233,16 @@ static int parse_hex_number(const char *s, size_t *out)
         s += 2;
     for (; *s; s++) {
         int d;
-        if (*s >= '0' && *s <= '9') d = *s - '0';
-        else if (*s >= 'a' && *s <= 'f') d = *s - 'a' + 10;
-        else if (*s >= 'A' && *s <= 'F') d = *s - 'A' + 10;
-        else if (*s == '_') continue;
-        else return -1;
+        if (*s >= '0' && *s <= '9')
+            d = *s - '0';
+        else if (*s >= 'a' && *s <= 'f')
+            d = *s - 'a' + 10;
+        else if (*s >= 'A' && *s <= 'F')
+            d = *s - 'A' + 10;
+        else if (*s == '_')
+            continue;
+        else
+            return -1;
         if (v > (SIZE_MAX >> 4))
             return -1;
         v = (v << 4) | (size_t)d;
@@ -269,9 +274,12 @@ static int parse_hex_bytes(int argc, char **argv, uint8_t **out, size_t *outlen)
                 s++;
                 continue;
             }
-            if (*s >= '0' && *s <= '9') d = *s - '0';
-            else if (*s >= 'a' && *s <= 'f') d = *s - 'a' + 10;
-            else if (*s >= 'A' && *s <= 'F') d = *s - 'A' + 10;
+            if (*s >= '0' && *s <= '9')
+                d = *s - '0';
+            else if (*s >= 'a' && *s <= 'f')
+                d = *s - 'a' + 10;
+            else if (*s >= 'A' && *s <= 'F')
+                d = *s - 'A' + 10;
             else {
                 fprintf(stderr, "Invalid hex character '%c' in \"%s\"\n", *s, argv[i]);
                 free(buf);
@@ -501,7 +509,7 @@ static void usage(void)
 #else
            "  fwtool flash firmware.bin /dev/ttyUSB0 -b 115200 -p xmodem\n"
 #endif
-           );
+    );
 }
 
 static void interactive_help(void)
@@ -579,7 +587,7 @@ static int cmd_edit(const char *path)
             if (!g_cancel)
                 Sleep(100);
 #endif
-            if (g_cancel) {          /* Ctrl+C on Windows interrupts fgets */
+            if (g_cancel) { /* Ctrl+C on Windows interrupts fgets */
                 g_cancel = 0;
                 clearerr(stdin);
                 printf("\n(use 'q' to quit)\n");
@@ -618,7 +626,7 @@ static int cmd_edit(const char *path)
                 continue;
             }
             if (off >= b.size && argc == 1)
-                off = 0;   /* wrap around when continuing past the end */
+                off = 0; /* wrap around when continuing past the end */
             hexdump(&b, off, len);
             /* avoid size_t overflow for huge lengths */
             next_off = (off < b.size && len < b.size - off) ? off + len : b.size;
@@ -644,7 +652,7 @@ static int cmd_edit(const char *path)
                 printf("Usage: fill <offset> <length> <byte>\n");
                 continue;
             }
-            if (off >= b.size || len > b.size - off) {   /* check before allocating */
+            if (off >= b.size || len > b.size - off) { /* check before allocating */
                 printf("Range is outside the file (size 0x%zX)\n", b.size);
                 continue;
             }
