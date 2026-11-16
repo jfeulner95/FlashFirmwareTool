@@ -98,7 +98,7 @@ Every push and pull request runs these GitHub Actions workflows:
 | **CI** (`ci.yml`) | Builds `fwtool` with GCC, Clang, CMake and MSVC on Linux, macOS and Windows, runs the CLI smoke test, and runs the Python test suite on Linux and Windows |
 | **Lint & Style** (`lint.yml`) | `clang-format` (C style), `cppcheck` (C static analysis), `ruff` (Python lint + format), `actionlint` + `shellcheck` (workflows and scripts) |
 | **CodeQL** (`codeql.yml`) | Security and quality analysis for C, Python and the workflows themselves (also weekly) |
-| **Claude Code Review** (`claude-code-review.yml`) | AI review of pull requests with inline comments – needs the [Claude GitHub App](https://github.com/apps/claude) and an `ANTHROPIC_API_KEY` repository secret; skipped otherwise |
+| **Claude Code Review** (`claude-code-review.yml`) | AI review of pull requests with inline comments – needs the [Claude GitHub App](https://github.com/apps/claude) and a `CLAUDE_CODE_OAUTH_TOKEN` repository secret (create it with `claude setup-token`, needs a Claude Pro/Max subscription); skipped otherwise |
 
 Run the same checks locally before pushing:
 

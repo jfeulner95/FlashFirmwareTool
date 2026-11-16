@@ -4,7 +4,9 @@ name: Claude Code Review
 #
 # Setup (once):
 #   1. Install the Claude GitHub App on this repository: https://github.com/apps/claude
-#   2. Add an ANTHROPIC_API_KEY repository secret (Settings → Secrets and variables → Actions).
+#   2. Run `claude setup-token` (Claude Code CLI, needs a Claude Pro/Max subscription) and store
+#      the token as CLAUDE_CODE_OAUTH_TOKEN repository secret
+#      (Settings → Secrets and variables → Actions). Reviews count against the subscription's limits.
 # Without the secret this workflow is skipped with a notice instead of failing.
 
 on:
@@ -26,15 +28,15 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - name: Check for API key
+      - name: Check for OAuth token
         id: key
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ -n "$ANTHROPIC_API_KEY" ]; then
+          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::ANTHROPIC_API_KEY secret is not set (or not available to fork PRs) - skipping Claude review"
+            echo "::notice::CLAUDE_CODE_OAUTH_TOKEN secret is not set (or not available to fork PRs) - skipping Claude review"
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -47,7 +49,7 @@ jobs:
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@d1f58ad5e6f4d2b79547e63e37c2116064135896 # v1.0.277
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
