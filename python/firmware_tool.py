@@ -356,6 +356,8 @@ class App(tk.Tk):
     def _update_cursor_info(self, idx):
         data = self.hexview.data
         if not data:
+            for v in self.cursor_vars.values():   # keine veralteten Werte stehen lassen
+                v.set("-")
             return
         b = data[idx]
         self.cursor_vars["Offset"].set(f"0x{idx:08X} ({idx})")
@@ -373,8 +375,10 @@ class App(tk.Tk):
         ports = list_ports()
         values = [f"{dev} – {desc}" for dev, desc in ports]
         self.port_combo["values"] = values
-        current = self.port_var.get()
-        if values and not any(current and v.startswith(current.split(" ")[0]) for v in values):
+        # Exakter Vergleich des Gerätenamens – ein Präfixvergleich würde z.B. "COM1" als
+        # noch vorhanden ansehen, wenn nur "COM10" existiert.
+        current = self._selected_port()
+        if values and current not in {dev for dev, _ in ports}:
             self.port_var.set(values[0])
         if not values:
             self.port_var.set("")

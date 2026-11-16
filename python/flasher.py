@@ -110,7 +110,26 @@ class Flasher:
             ser.flush()
             self.progress(min(off + self.chunk_size, total), total)
             if self.chunk_delay:
-                time.sleep(self.chunk_delay)
+                self._sleep(self.chunk_delay)   # abbrechbar, auch bei langen Pausen
+        if total == 0:
+            self.progress(0, 0)
+
+    def _read_response(self, ser, timeout):
+        """Wartet bis zu `timeout` s auf ein Antwortbyte, prüft dabei alle 100 ms auf Abbruch.
+
+        Liefert das Byte (int) oder None bei Timeout. Bei Abbruch wird CAN gesendet.
+        """
+        ser.timeout = 0.1
+        end = time.time() + timeout
+        while True:
+            if self._cancel.is_set():
+                ser.write(bytes([CAN, CAN, CAN]))
+                raise FlashCancelled()
+            r = ser.read(1)
+            if r:
+                return r[0]
+            if time.time() >= end:
+                return None
 
     # -------------------------------------------------------------- XMODEM
     def _send_xmodem(self, ser, data, block_size):
@@ -136,12 +155,14 @@ class Flasher:
                 use_crc = False
             elif c[0] == CAN:
                 raise RuntimeError("Empfänger hat abgebrochen (CAN)")
+        # Weitere 'C'/NAK, die der Empfänger bereits gesendet hat, verwerfen – sonst
+        # würden sie als Antwort auf Block 1 gelesen und der Block doppelt gesendet.
+        ser.reset_input_buffer()
         if not use_crc and block_size == 1024:
             self.log("Empfänger unterstützt kein CRC -> Fallback auf 128-Byte-Blöcke")
             block_size = 128
         self.log(f"Empfänger bereit, Modus: {'CRC16' if use_crc else 'Checksumme'}, Block {block_size} B")
 
-        ser.timeout = 10
         blk = 1
         off = 0
         while off < total:
@@ -153,18 +174,16 @@ class Flasher:
             pkt += crc16_xmodem(chunk).to_bytes(2, "big") if use_crc else bytes([sum(chunk) & 0xFF])
 
             for attempt in range(10):
-                if self._cancel.is_set():
-                    ser.write(bytes([CAN, CAN]))
-                    raise FlashCancelled()
                 ser.write(pkt)
-                r = ser.read(1)
-                if r and r[0] == ACK:
+                r = self._read_response(ser, 10)
+                if r == ACK:
                     break
-                if r and r[0] == CAN:
+                if r == CAN:
                     raise RuntimeError("Empfänger hat abgebrochen (CAN)")
-                self.log(f"Block {blk}: {'NAK' if r else 'Timeout'} – Wiederholung {attempt + 1}/10")
+                reason = "Timeout" if r is None else "NAK" if r == NAK else f"unerwartete Antwort 0x{r:02X}"
+                self.log(f"Block {blk}: {reason} – Wiederholung {attempt + 1}/10")
             else:
-                ser.write(bytes([CAN, CAN]))
+                ser.write(bytes([CAN, CAN, CAN]))
                 raise RuntimeError(f"Block {blk}: zu viele Fehler, Abbruch")
 
             off += block_size
@@ -173,7 +192,6 @@ class Flasher:
 
         for attempt in range(10):
             ser.write(bytes([EOT]))
-            r = ser.read(1)
-            if r and r[0] == ACK:
+            if self._read_response(ser, 5) == ACK:
                 return
         raise RuntimeError("EOT wurde nicht bestätigt")
