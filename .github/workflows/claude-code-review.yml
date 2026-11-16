@@ -1,0 +1,74 @@
+name: Claude Code Review
+
+# AI code review on every pull request, posted as inline comments.
+#
+# Setup (once):
+#   1. Install the Claude GitHub App on this repository: https://github.com/apps/claude
+#   2. Add an ANTHROPIC_API_KEY repository secret (Settings → Secrets and variables → Actions).
+# Without the secret this workflow is skipped with a notice instead of failing.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Claude review
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check for API key
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::ANTHROPIC_API_KEY secret is not set (or not available to fork PRs) - skipping Claude review"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.key.outputs.present == 'true'
+        with:
+          fetch-depth: 1
+
+      - name: Review pull request
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request for the Firmware Flash Tool. The repo has two implementations
+            with matching features: a C99 CLI (c/src, Win32 + POSIX termios) and a Python/Tkinter
+            GUI (python/, pyserial). Focus on real defects, not style (style is enforced by
+            clang-format and ruff in CI):
+
+            1. Correctness of the transfer protocols (RAW, XMODEM, XMODEM-1K): block numbering,
+               padding, CRC16/checksum, retries, CAN/EOT handling, timeouts and cancellation.
+            2. C memory and resource safety: buffer bounds, size_t overflow, leaks on error paths,
+               unchecked return values, portability between Windows, Linux and macOS.
+            3. Python: thread safety between the flash worker and the Tk main loop (Tk must only be
+               touched from the main thread), exception handling, undo/modified tracking in hexview.
+            4. Data-loss risks: anything that could flash or save a different image than the user
+               expects, or discard unsaved edits.
+            5. Parity between the C and Python implementations when behaviour changes in one.
+
+            Use inline comments for specific issues and one short top-level summary comment.
+            If you find nothing significant, say so briefly instead of inventing issues.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

@@ -1,0 +1,78 @@
+name: Lint & Style
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Tool versions are pinned so formatting results do not change underneath us.
+# Update them deliberately (and re-run the formatters) when bumping.
+env:
+  CLANG_FORMAT_VERSION: "23.1.5"
+  RUFF_VERSION: "0.17.5"
+
+jobs:
+  c-style:
+    name: C · clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install "clang-format==${CLANG_FORMAT_VERSION}"
+      - name: Check formatting (fix locally with `clang-format -i c/src/*.c c/src/*.h`)
+        run: clang-format --dry-run --Werror c/src/*.c c/src/*.h
+
+  c-static-analysis:
+    name: C · cppcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cppcheck
+      - name: Run cppcheck
+        run: |
+          cppcheck --version
+          cppcheck c/src \
+            --std=c99 \
+            --enable=warning,portability,performance \
+            --inline-suppr \
+            --error-exitcode=1 \
+            --template='::warning file={file},line={line},col={column}::{severity}: {message} [{id}]' \
+            --quiet
+
+  python-style:
+    name: Python · ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install "ruff==${RUFF_VERSION}"
+      - name: Lint (ruff check)
+        run: ruff check --output-format=github python
+      - name: Format (fix locally with `ruff format python`)
+        run: ruff format --check --diff python
+
+  workflows:
+    name: GitHub Actions · actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # actionlint also runs shellcheck on every `run:` block (shellcheck is preinstalled)
+      - run: pip install actionlint-py
+      - run: actionlint -color
+      - name: Shellcheck test scripts
+        run: shellcheck c/tests/*.sh

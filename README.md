@@ -1,5 +1,9 @@
 # Firmware Flash Tool
 
+[![CI](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/ci.yml/badge.svg)](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/ci.yml)
+[![Lint & Style](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/lint.yml/badge.svg)](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/lint.yml)
+[![CodeQL](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/codeql.yml/badge.svg)](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/codeql.yml)
+
 ![Firmware Flash Tool Social Preview](assets/social-preview.png)
 
 **Version:** `0.1.0`
@@ -46,6 +50,9 @@ A fast, standalone command-line utility (`fwtool`) with zero external dependenci
 
 ```text
 FlashFirmwareTool/
+├── .github/
+│   ├── workflows/           # CI, lint/style, CodeQL, Claude code review
+│   └── dependabot.yml       # Weekly updates for actions and pip
 ├── assets/
 │   ├── icon.png             # Application icon (512x512 PNG)
 │   ├── icon.ico             # Windows application icon (ICO)
@@ -55,9 +62,11 @@ FlashFirmwareTool/
 │   ├── hexview.py           # Virtualized hex editor widget
 │   ├── flasher.py           # Serial protocols (RAW, XMODEM, XMODEM-1K)
 │   ├── requirements.txt     # Python dependencies (pyserial)
+│   ├── tests/               # pytest suite (protocols, hex editor logic)
 │   └── README.md            # Python GUI documentation
 ├── c/                       # C99 Command-Line Tool (v0.1.0)
 │   ├── src/                 # C source and header files
+│   ├── tests/               # CLI smoke test (smoke_test.sh)
 │   ├── Makefile             # Build script for GCC/Clang/MinGW
 │   ├── CMakeLists.txt       # CMake build configuration
 │   └── README.md            # C CLI documentation
@@ -78,4 +87,25 @@ python firmware_tool.py
 cd c
 make
 ./fwtool --version
+```
+
+## Development & CI
+
+Every push and pull request runs these GitHub Actions workflows:
+
+| Workflow | What it checks |
+|---|---|
+| **CI** (`ci.yml`) | Builds `fwtool` with GCC, Clang, CMake and MSVC on Linux, macOS and Windows, runs the CLI smoke test, and runs the Python test suite on Linux and Windows |
+| **Lint & Style** (`lint.yml`) | `clang-format` (C style), `cppcheck` (C static analysis), `ruff` (Python lint + format), `actionlint` + `shellcheck` (workflows and scripts) |
+| **CodeQL** (`codeql.yml`) | Security and quality analysis for C, Python and the workflows themselves (also weekly) |
+| **Claude Code Review** (`claude-code-review.yml`) | AI review of pull requests with inline comments – needs the [Claude GitHub App](https://github.com/apps/claude) and an `ANTHROPIC_API_KEY` repository secret; skipped otherwise |
+
+Run the same checks locally before pushing:
+
+```sh
+pip install clang-format==23.1.5 ruff==0.17.5 pytest pyserial
+clang-format -i c/src/*.c c/src/*.h      # format C (style: .clang-format)
+ruff check python && ruff format python  # lint + format Python (config: ruff.toml)
+python -m pytest python/tests            # Python tests
+cd c && make && bash tests/smoke_test.sh ./fwtool
 ```
