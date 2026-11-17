@@ -13,13 +13,19 @@ from hexview import HexView
 
 
 def _read_version() -> str:
-    """Reads the version from the repository's VERSION file (single source of truth)."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "VERSION")
-    try:
-        with open(path, encoding="utf-8") as fh:
-            return fh.read().strip()
-    except OSError:
-        return "unknown"
+    """Reads the version from the VERSION file (single source of truth).
+
+    Next to this module inside the PyInstaller bundle (Windows .exe),
+    otherwise one level up in the repository checkout - like _load_icon().
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in (os.path.join(here, "VERSION"), os.path.join(here, "..", "VERSION")):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                return fh.read().strip()
+        except OSError:
+            continue
+    return "unknown"
 
 
 __version__ = _read_version()

@@ -52,7 +52,7 @@ A fast, standalone command-line utility (`fwtool`) with zero external dependenci
 ```text
 FlashFirmwareTool/
 ├── .github/
-│   ├── workflows/           # CI, lint/style, CodeQL, Claude code review
+│   ├── workflows/           # CI, lint/style, CodeQL, Claude code review, release
 │   └── dependabot.yml       # Weekly updates for actions and pip
 ├── assets/
 │   ├── icon.png             # Application icon (512x512 PNG)
@@ -63,6 +63,7 @@ FlashFirmwareTool/
 │   ├── hexview.py           # Virtualized hex editor widget
 │   ├── flasher.py           # Serial protocols (RAW, XMODEM, XMODEM-1K)
 │   ├── requirements.txt     # Python dependencies (pyserial)
+│   ├── requirements-build.txt # Release build tools (PyInstaller)
 │   ├── tests/               # pytest suite (protocols, hex editor logic)
 │   └── README.md            # Python GUI documentation
 ├── c/                       # C99 Command-Line Tool
@@ -72,9 +73,19 @@ FlashFirmwareTool/
 │   ├── CMakeLists.txt       # CMake build configuration
 │   └── README.md            # C CLI documentation
 ├── VERSION                  # Version number (single source of truth)
+├── CHANGELOG.md             # User-facing changes per release
 ├── LICENSE                  # MIT License
 └── README.md                # Project overview (this file)
 ```
+
+## Download
+
+Prebuilt downloads are on the [Releases page](https://github.com/jfeulner95/FlashFirmwareTool/releases):
+
+- **GUI for Windows** – `FirmwareFlashTool-<version>-windows-x86_64.exe`, a single file that needs no Python installation.
+  The `.exe` is not code-signed, so Windows SmartScreen may warn on first start (“More info” → “Run anyway”).
+- **`fwtool` CLI** – archives for Windows (x86-64), Linux (x86-64) and macOS (Apple Silicon).
+- `SHA256SUMS.txt` to verify the downloads.
 
 ## Quick Start
 
@@ -112,6 +123,20 @@ ruff check python && ruff format python  # lint + format Python (config: ruff.to
 python -m pytest python/tests            # Python tests
 cd c && make WERROR=1 && bash tests/smoke_test.sh ./fwtool
 ```
+
+### Publishing a release
+
+The **Release** workflow (`release.yml`) builds the downloads listed above and publishes them as a GitHub release.
+
+1. In a pull request, bump [`VERSION`](VERSION) and add a `## [x.y.z]` section to [`CHANGELOG.md`](CHANGELOG.md).
+   The Release workflow runs as a dry run on that PR (everything except publishing).
+2. After merging, tag the merge commit on `master` and push the tag:
+   ```sh
+   git tag -a vx.y.z -m "Release x.y.z"
+   git push origin vx.y.z
+   ```
+3. The workflow checks that the tag matches `VERSION` and that the changelog has the section,
+   builds everything, and creates the release with the changelog section as release notes.
 
 ## License
 
