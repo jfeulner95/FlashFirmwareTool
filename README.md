@@ -3,10 +3,11 @@
 [![CI](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/ci.yml/badge.svg)](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/ci.yml)
 [![Lint & Style](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/lint.yml/badge.svg)](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/lint.yml)
 [![CodeQL](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/codeql.yml/badge.svg)](https://github.com/jfeulner95/FlashFirmwareTool/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ![Firmware Flash Tool Social Preview](assets/social-preview.png)
 
-**Version:** `0.1.0`
+**Version:** see [`VERSION`](VERSION) — the single source of truth for the C CLI, the Python GUI and the build files.
 
 **Firmware Flash Tool** is a lightweight toolkit for inspecting, patching, and transferring microcontroller firmware binaries over a serial port. It includes two implementations with matching capabilities:
 
@@ -17,7 +18,7 @@
 
 ## Overview of Both Tools
 
-### 1. Python GUI (`python/`) — `v0.1.0`
+### 1. Python GUI (`python/`)
 
 A graphical application for interactive firmware inspection, live byte editing, and serial flashing.
 
@@ -30,7 +31,7 @@ A graphical application for interactive firmware inspection, live byte editing, 
 
 ---
 
-### 2. C Command-Line Tool (`c/`) — `v0.1.0`
+### 2. C Command-Line Tool (`c/`)
 
 A fast, standalone command-line utility (`fwtool`) with zero external dependencies, using the native Win32 Comm API on Windows and `termios` on Linux/macOS.
 
@@ -57,19 +58,21 @@ FlashFirmwareTool/
 │   ├── icon.png             # Application icon (512x512 PNG)
 │   ├── icon.ico             # Windows application icon (ICO)
 │   └── social-preview.png   # GitHub social preview banner (1280x640)
-├── python/                  # Python/Tkinter GUI (v0.1.0)
+├── python/                  # Python/Tkinter GUI
 │   ├── firmware_tool.py     # Main GUI application
 │   ├── hexview.py           # Virtualized hex editor widget
 │   ├── flasher.py           # Serial protocols (RAW, XMODEM, XMODEM-1K)
 │   ├── requirements.txt     # Python dependencies (pyserial)
 │   ├── tests/               # pytest suite (protocols, hex editor logic)
 │   └── README.md            # Python GUI documentation
-├── c/                       # C99 Command-Line Tool (v0.1.0)
+├── c/                       # C99 Command-Line Tool
 │   ├── src/                 # C source and header files
 │   ├── tests/               # CLI smoke test (smoke_test.sh)
 │   ├── Makefile             # Build script for GCC/Clang/MinGW
 │   ├── CMakeLists.txt       # CMake build configuration
 │   └── README.md            # C CLI documentation
+├── VERSION                  # Version number (single source of truth)
+├── LICENSE                  # MIT License
 └── README.md                # Project overview (this file)
 ```
 
@@ -107,5 +110,9 @@ pip install clang-format==23.1.5 ruff==0.17.5 pytest pyserial
 clang-format -i c/src/*.c c/src/*.h      # format C (style: .clang-format)
 ruff check python && ruff format python  # lint + format Python (config: ruff.toml)
 python -m pytest python/tests            # Python tests
-cd c && make && bash tests/smoke_test.sh ./fwtool
+cd c && make WERROR=1 && bash tests/smoke_test.sh ./fwtool
 ```
+
+## License
+
+Released under the [MIT License](LICENSE).
