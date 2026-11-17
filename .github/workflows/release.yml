@@ -1,0 +1,193 @@
+name: Release
+
+# Publishing a release:
+#   1. Bump VERSION and add a "## [x.y.z]" section to CHANGELOG.md (in a PR)
+#   2. After merging:  git tag -a vx.y.z -m "Release x.y.z" && git push origin vx.y.z
+# The tag must match VERSION, otherwise nothing is built or published.
+#
+# Pull requests that touch the build inputs run everything except "publish"
+# (dry run), so a broken release build shows up before tagging.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - VERSION
+      - CHANGELOG.md
+      - assets/**
+      - c/**
+      - python/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  prepare:
+    name: Release · check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check VERSION, tag and changelog
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="$(tr -d '\r\n' < VERSION)"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error file=VERSION::'$version' is not MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          if [ "$REF_TYPE" = "tag" ] && [ "$REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $REF_NAME does not match VERSION ($version) - expected v$version"
+            exit 1
+          fi
+          if ! grep -q "^## \[$version\]" CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::Missing '## [$version]' section for this version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  cli:
+    name: Release · fwtool ${{ matrix.platform }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-latest
+            exe: build/fwtool
+          - platform: macos-arm64
+            os: macos-latest
+            exe: build/fwtool
+          - platform: windows-x86_64
+            os: windows-latest
+            exe: build/Release/fwtool.exe
+    env:
+      PKG: fwtool-${{ needs.prepare.outputs.version }}-${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        run: |
+          cmake -S c -B build -DCMAKE_BUILD_TYPE=Release -DFWTOOL_WERROR=ON
+          cmake --build build --config Release
+
+      - name: Smoke test
+        shell: bash
+        run: bash c/tests/smoke_test.sh "${{ matrix.exe }}"
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p "dist/$PKG"
+          cp "${{ matrix.exe }}" LICENSE CHANGELOG.md "dist/$PKG/"
+          cp c/README.md "dist/$PKG/README.md"
+          cd dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a -tzip "$PKG.zip" "$PKG" > /dev/null
+          else
+            tar czf "$PKG.tar.gz" "$PKG"
+          fi
+          rm -r "$PKG"
+          ls -l
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-cli-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  gui:
+    name: Release · GUI windows-x86_64
+    needs: prepare
+    runs-on: windows-latest
+    env:
+      EXE_NAME: FirmwareFlashTool-${{ needs.prepare.outputs.version }}-windows-x86_64
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            python/requirements.txt
+            python/requirements-build.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r python/requirements.txt -r python/requirements-build.txt
+
+      # VERSION and the icons are bundled next to the module, where
+      # firmware_tool.py looks first (see _read_version / _load_icon).
+      - name: Build standalone .exe
+        run: >
+          pyinstaller python/firmware_tool.py
+          --onefile --windowed --noconfirm --clean
+          --name "${{ env.EXE_NAME }}"
+          --icon assets/icon.ico
+          --paths python
+          --add-data "VERSION;."
+          --add-data "assets/icon.ico;assets"
+          --add-data "assets/icon.png;assets"
+          --distpath dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-gui-windows-x86_64
+          path: dist/${{ env.EXE_NAME }}.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Release · publish
+    needs: [prepare, cli, gui]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub release
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^\[[^]]+\]: / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+          cat notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" dist/* --verify-tag --title "Firmware Flash Tool $VERSION" --notes-file notes.md
