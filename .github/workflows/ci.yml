@@ -50,13 +50,13 @@ jobs:
       - name: Build with make
         if: matrix.build == 'make'
         working-directory: c
-        run: make CC=${{ matrix.cc }}
+        run: make CC=${{ matrix.cc }} WERROR=1
 
       - name: Build with CMake
         if: matrix.build == 'cmake'
         working-directory: c
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFWTOOL_WERROR=ON
           cmake --build build --config Release
 
       - name: Smoke test
