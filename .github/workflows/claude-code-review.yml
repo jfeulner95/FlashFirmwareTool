@@ -31,9 +31,18 @@ jobs:
       - name: Check for OAuth token
         id: key
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          RAW_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+          # Strip whitespace that easily sneaks in when pasting the secret
+          # (a leading space makes authentication fail immediately).
+          token="$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')"
+          if [ -n "$token" ]; then
+            if [ "$token" != "$RAW_TOKEN" ]; then
+              echo "::warning::CLAUDE_CODE_OAUTH_TOKEN contains whitespace - it was trimmed; consider re-saving the secret"
+            fi
+            echo "::add-mask::$token"
+            # The action reads CLAUDE_CODE_OAUTH_TOKEN from the environment when the input is empty
+            echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::CLAUDE_CODE_OAUTH_TOKEN secret is not set (or not available to fork PRs) - skipping Claude review"
@@ -49,7 +58,7 @@ jobs:
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@d1f58ad5e6f4d2b79547e63e37c2116064135896 # v1.0.277
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Token comes from $CLAUDE_CODE_OAUTH_TOKEN (trimmed in the step above)
           track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
