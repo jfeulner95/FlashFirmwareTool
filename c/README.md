@@ -1,4 +1,4 @@
-# fwtool (C, command line) — v0.1.0
+# fwtool (C, command line)
 
 Command-line counterpart of the Python GUI: view and patch firmware binaries and transfer them over a serial port.
 Runs on **Windows** and **Linux** (macOS should work as well). No external dependencies.
@@ -23,10 +23,15 @@ cmake --build build --config Release
 
 **Without a build system:**
 ```sh
-gcc -O2 -std=c99 -o fwtool src/*.c                                                # Linux
-gcc -O2 -std=c99 -D__USE_MINGW_ANSI_STDIO=1 -o fwtool.exe src/*.c -ladvapi32     # MinGW
-cl /O2 /D_CRT_SECURE_NO_WARNINGS src\*.c /Fe:fwtool.exe                          # MSVC
+V="\"$(cat ../VERSION)\""   # version from the repository's VERSION file
+gcc -O2 -std=c99 -DFWTOOL_VERSION="$V" -o fwtool src/*.c                                            # Linux
+gcc -O2 -std=c99 -DFWTOOL_VERSION="$V" -D__USE_MINGW_ANSI_STDIO=1 -o fwtool.exe src/*.c -ladvapi32  # MinGW (MSYS2 shell)
 ```
+With MSVC (replace `x.y.z` with the content of `../VERSION`, or use CMake):
+```powershell
+cl /O2 /D_CRT_SECURE_NO_WARNINGS /DFWTOOL_VERSION=\"x.y.z\" src\*.c /Fe:fwtool.exe
+```
+Without the `FWTOOL_VERSION` define, `fwtool --version` reports `unknown`.
 
 ## Usage
 

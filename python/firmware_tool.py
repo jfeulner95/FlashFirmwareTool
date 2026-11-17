@@ -11,7 +11,18 @@ from tkinter.scrolledtext import ScrolledText
 from flasher import PARITIES, PROTOCOLS, STOPBITS, FlashCancelled, Flasher, list_ports
 from hexview import HexView
 
-__version__ = "0.1.0"
+
+def _read_version() -> str:
+    """Reads the version from the repository's VERSION file (single source of truth)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "VERSION")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return "unknown"
+
+
+__version__ = _read_version()
 APP_NAME = "Firmware Flash Tool"
 APP_TITLE = f"{APP_NAME} v{__version__}"
 BAUDRATES = ["9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600", "1000000", "2000000"]

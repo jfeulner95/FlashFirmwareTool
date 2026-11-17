@@ -36,9 +36,11 @@
 #include "flash.h"
 #include "serial.h"
 
-#define FWTOOL_VERSION "0.1.0"
-#define BYTES_PER_ROW  16
-#define MAX_TOKENS     256
+#ifndef FWTOOL_VERSION /* set by CMakeLists.txt / Makefile from the VERSION file */
+#define FWTOOL_VERSION "unknown"
+#endif
+#define BYTES_PER_ROW 16
+#define MAX_TOKENS    256
 
 /* ================================================================ colors */
 static int g_color = 0;

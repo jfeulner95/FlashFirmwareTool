@@ -233,6 +233,14 @@ static void read_first_line(const char *path, char *out, size_t outlen)
 }
 #endif
 
+/* Stores "/dev/<dev>" as the entry's name. Returns 0 (and the entry must be skipped)
+ * if the path does not fit: a truncated path would name a different device. */
+static int set_port_name(port_entry *e, const char *dev)
+{
+    int len = snprintf(e->name, sizeof e->name, "/dev/%s", dev);
+    return len > 0 && (size_t)len < sizeof e->name;
+}
+
 int serial_list_ports(serial_port_cb cb, void *user)
 {
     port_entry entries[256];
@@ -270,11 +278,13 @@ int serial_list_ports(serial_port_cb cb, void *user)
         snprintf(path, sizeof path, "/sys/class/tty/%s/device/../product", de->d_name);
         read_first_line(path, product, sizeof product);
 
-        snprintf(entries[count].name, sizeof entries[count].name, "/dev/%s", de->d_name);
+        if (!set_port_name(&entries[count], de->d_name))
+            continue;
+        /* the description is informational only - truncating it is fine */
         if (product[0])
-            snprintf(entries[count].desc, sizeof entries[count].desc, "%s (%s)", product, driver);
+            snprintf(entries[count].desc, sizeof entries[count].desc, "%.100s (%.80s)", product, driver);
         else
-            snprintf(entries[count].desc, sizeof entries[count].desc, "%s", driver);
+            snprintf(entries[count].desc, sizeof entries[count].desc, "%.180s", driver);
         count++;
     }
     closedir(dir);
@@ -286,8 +296,9 @@ int serial_list_ports(serial_port_cb cb, void *user)
     while ((de = readdir(dir)) != NULL && count < 256) {
         if (strncmp(de->d_name, "cu.", 3) != 0)
             continue;
-        snprintf(entries[count].name, sizeof entries[count].name, "/dev/%s", de->d_name);
-        snprintf(entries[count].desc, sizeof entries[count].desc, "%s", de->d_name + 3);
+        if (!set_port_name(&entries[count], de->d_name))
+            continue;
+        snprintf(entries[count].desc, sizeof entries[count].desc, "%.180s", de->d_name + 3);
         count++;
     }
     closedir(dir);
