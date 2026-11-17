@@ -1,4 +1,4 @@
-# Firmware Flash Tool (Python GUI) — v0.1.0
+# Firmware Flash Tool (Python GUI)
 
 Python/Tkinter GUI for loading, editing and transferring firmware binaries over a serial port.
 

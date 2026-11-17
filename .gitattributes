@@ -3,6 +3,8 @@
 
 # Shell scripts must keep LF, also when checked out on Windows (bash fails on CRLF)
 *.sh text eol=lf
+# Read by the build tools - no CR in the version string
+VERSION text eol=lf
 
 # Binary assets
 *.png binary

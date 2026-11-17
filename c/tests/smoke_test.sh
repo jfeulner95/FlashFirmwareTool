@@ -4,6 +4,8 @@
 set -u
 
 FW="${1:?usage: $0 path/to/fwtool}"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+EXPECTED_VERSION="$(tr -d '\r\n' <"$ROOT/VERSION")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 export NO_COLOR=1
@@ -34,7 +36,7 @@ for i in $(seq 0 63); do printf "\\$(printf '%03o' "$i")"; done >"$WORK/t.bin"
 echo "fwtool smoke test: $FW"
 
 expect_exit "--version" 0 "$FW" --version
-expect_out "--version prints version" "fwtool 0.1.0"
+expect_out "--version matches VERSION file" "fwtool $EXPECTED_VERSION"
 
 expect_exit "info" 0 "$FW" info "$WORK/t.bin"
 expect_out "info: size" "64 bytes (0x40)"

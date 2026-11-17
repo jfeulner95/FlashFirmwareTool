@@ -1,4 +1,4 @@
-# fwtool (C, command line) — v0.1.0
+# fwtool (C, command line)
 
 Command-line counterpart of the Python GUI: view and patch firmware binaries and transfer them over a serial port.
 Runs on **Windows** and **Linux** (macOS should work as well). No external dependencies.
